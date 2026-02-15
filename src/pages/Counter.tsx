@@ -1,7 +1,7 @@
 import { useParams, useNavigate } from '@solidjs/router';
-import { createSignal, Show, onMount, onCleanup } from 'solid-js';
+import { createSignal, Show, For, onMount, onCleanup } from 'solid-js';
 import ConfirmDialog from '../components/ConfirmDialog';
-import { db, updatePartRow, updateProjectRow } from '../db';
+import { db, updatePartRow, updateProjectRow, getActivePattern, type Pattern } from '../db';
 
 function vibrate() {
   if (navigator.vibrate) {
@@ -22,8 +22,22 @@ export default function Counter() {
   const [showDone, setShowDone] = createSignal(false);
   const [showReset, setShowReset] = createSignal(false);
   const [doneSeen, setDoneSeen] = createSignal(false);
+  const [pattern, setPattern] = createSignal<Pattern | null>(null);
 
   let animTimer: ReturnType<typeof setTimeout> | undefined;
+
+  const patternPath = () =>
+    isProjectMode()
+      ? `/project/${params.id}/counter/pattern`
+      : `/project/${params.id}/part/${params.partId}/pattern`;
+
+  const patternActiveIndex = () => {
+    const p = pattern();
+    if (!p) return -1;
+    const offset = count() - p.startRow;
+    if (offset <= 0) return -1;
+    return (offset - 1) % p.rows.length;
+  };
 
   onMount(async () => {
     if (isProjectMode()) {
@@ -51,6 +65,11 @@ export default function Counter() {
         setDoneSeen(true);
       }
     }
+
+    const entityId = isProjectMode() ? params.id : params.partId!;
+    const entityType = isProjectMode() ? 'project' as const : 'part' as const;
+    const active = await getActivePattern(entityId, entityType);
+    if (active) setPattern(active);
   });
 
   onCleanup(() => {
@@ -123,10 +142,56 @@ export default function Counter() {
           </svg>
         </button>
         <h1 class="flex-1 text-lg font-semibold truncate">{title() || '...'}</h1>
+        <button
+          class="flex items-center justify-center flex-col w-9 h-9 rounded-full hover:bg-warm-progress-bg transition-colors"
+          classList={{
+            'text-warm-primary': !!pattern(),
+            'text-warm-text-secondary': !pattern(),
+          }}
+          onClick={() => navigate(patternPath())}
+          aria-label="Рисунок"
+        >
+          <svg class="w-5 h-5" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
+            <path stroke-linecap="round" stroke-linejoin="round" d="M4 6h16M4 10h16M4 14h16M4 18h16" />
+          </svg>
+        </button>
       </div>
 
-      {/* Counter display area */}
-      <div class="flex-1 flex flex-col items-center justify-center px-4 min-h-0" style={{ "flex-basis": "35%" }}>
+      {/* Pattern timeline */}
+      <Show when={pattern()}>
+        <div class="flex flex-col items-center justify-center gap-4 px-4  min-h-0" style={{ "flex-basis": "40%" }}>
+          <div class="mx-auto">
+            <For each={pattern()!.rows}>
+              {(rowLabel, i) => {
+                const isActive = () => patternActiveIndex() === i();
+                return (
+                  <div class="flex items-center gap-1 transition-all duration-200">
+                    <div
+                      class="w-3 h-3 rounded-full border-2 border-warm-primary transition-all duration-200"
+                      classList={{
+                        'bg-warm-primary scale-125': isActive(),
+                        'bg-transparent opacity-40': !isActive(),
+                      }}
+                    />
+                    <span
+                      class="text-lg whitespace-nowrap transition-all duration-200"
+                      classList={{
+                        'font-bold text-warm-text': isActive(),
+                        'text-warm-text-secondary opacity-40': !isActive(),
+                      }}
+                    >
+                      {rowLabel}
+                    </span>
+                  </div>
+                );
+              }}
+            </For>
+          </div>
+        </div>
+      </Show>
+
+      {/* Counter display */}
+      <div class="flex flex-col items-center justify-center px-4 min-h-0" style={{ "flex-basis": pattern() ? "20%" : "50%" }}>
         <span
           class="tabular-nums font-bold leading-none text-warm-text"
           classList={{
@@ -160,7 +225,7 @@ export default function Counter() {
       {/* Tap zone */}
       <div
         class="bg-warm-primary rounded-t-3xl flex items-center justify-center cursor-pointer active:bg-warm-primary-dark transition-colors relative"
-        style={{ "flex-basis": "55%", "min-height": "0" }}
+        style={{ "flex-basis": pattern() ? "40%" : "50%", "min-height": "0" }}
         onClick={increment}
         role="button"
         aria-label="Добавить ряд"
