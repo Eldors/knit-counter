@@ -10,6 +10,7 @@ export default function App() {
       <Route path="/" component={ProjectList} />
       <Route path="/new" component={NewProject} />
       <Route path="/project/:id" component={Project} />
+      <Route path="/project/:id/counter" component={Counter} />
       <Route path="/project/:id/part/:partId" component={Counter} />
     </HashRouter>
   );

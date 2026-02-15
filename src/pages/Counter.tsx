@@ -1,7 +1,7 @@
 import { useParams, useNavigate } from '@solidjs/router';
 import { createSignal, Show, onMount, onCleanup } from 'solid-js';
 import ConfirmDialog from '../components/ConfirmDialog';
-import { db, updatePartRow, type Part } from '../db';
+import { db, updatePartRow, updateProjectRow } from '../db';
 
 function vibrate() {
   if (navigator.vibrate) {
@@ -10,10 +10,13 @@ function vibrate() {
 }
 
 export default function Counter() {
-  const params = useParams<{ id: string; partId: string }>();
+  const params = useParams<{ id: string; partId?: string }>();
   const navigate = useNavigate();
 
-  const [part, setPart] = createSignal<Part | null>(null);
+  const isProjectMode = () => !params.partId;
+
+  const [title, setTitle] = createSignal('');
+  const [target, setTarget] = createSignal(0);
   const [count, setCount] = createSignal(0);
   const [animating, setAnimating] = createSignal(false);
   const [showDone, setShowDone] = createSignal(false);
@@ -23,15 +26,30 @@ export default function Counter() {
   let animTimer: ReturnType<typeof setTimeout> | undefined;
 
   onMount(async () => {
-    const p = await db.parts.get(params.partId);
-    if (!p || p.projectId !== params.id) {
-      navigate(`/project/${params.id}`);
-      return;
-    }
-    setPart(p);
-    setCount(p.currentRow);
-    if (p.targetRows > 0 && p.currentRow >= p.targetRows) {
-      setDoneSeen(true);
+    if (isProjectMode()) {
+      const project = await db.projects.get(params.id);
+      if (!project) {
+        navigate('/');
+        return;
+      }
+      setTitle(project.name);
+      setTarget(project.targetRows);
+      setCount(project.currentRow);
+      if (project.targetRows > 0 && project.currentRow >= project.targetRows) {
+        setDoneSeen(true);
+      }
+    } else {
+      const p = await db.parts.get(params.partId!);
+      if (!p || p.projectId !== params.id) {
+        navigate(`/project/${params.id}`);
+        return;
+      }
+      setTitle(p.name);
+      setTarget(p.targetRows);
+      setCount(p.currentRow);
+      if (p.targetRows > 0 && p.currentRow >= p.targetRows) {
+        setDoneSeen(true);
+      }
     }
   });
 
@@ -48,15 +66,19 @@ export default function Counter() {
     });
   };
 
+  const saveRow = async (row: number) => {
+    if (isProjectMode()) await updateProjectRow(params.id, row);
+    else await updatePartRow(params.partId!, row);
+  };
+
   const increment = async () => {
     const newCount = count() + 1;
     setCount(newCount);
     triggerPulse();
     vibrate();
-    await updatePartRow(params.partId, newCount);
+    await saveRow(newCount);
 
-    const p = part();
-    if (p && p.targetRows > 0 && newCount >= p.targetRows && !doneSeen()) {
+    if (target() > 0 && newCount >= target() && !doneSeen()) {
       setDoneSeen(true);
       setShowDone(true);
       setTimeout(() => setShowDone(false), 1800);
@@ -68,10 +90,9 @@ export default function Counter() {
     const newCount = count() - 1;
     setCount(newCount);
     vibrate();
-    await updatePartRow(params.partId, newCount);
+    await saveRow(newCount);
 
-    const p = part();
-    if (p && p.targetRows > 0 && newCount < p.targetRows) {
+    if (target() > 0 && newCount < target()) {
       setDoneSeen(false);
     }
   };
@@ -80,13 +101,12 @@ export default function Counter() {
     setCount(0);
     setShowReset(false);
     setDoneSeen(false);
-    await updatePartRow(params.partId, 0);
+    await saveRow(0);
   };
 
   const pct = () => {
-    const p = part();
-    if (!p || p.targetRows <= 0) return null;
-    return Math.min(100, Math.round((count() / p.targetRows) * 100));
+    if (target() <= 0) return null;
+    return Math.min(100, Math.round((count() / target()) * 100));
   };
 
   return (
@@ -102,7 +122,7 @@ export default function Counter() {
             <path stroke-linecap="round" stroke-linejoin="round" d="M15 19l-7-7 7-7" />
           </svg>
         </button>
-        <h1 class="flex-1 text-lg font-semibold truncate">{part()?.name ?? '...'}</h1>
+        <h1 class="flex-1 text-lg font-semibold truncate">{title() || '...'}</h1>
       </div>
 
       {/* Counter display area */}
@@ -119,9 +139,9 @@ export default function Counter() {
           {count()}
         </span>
 
-        <Show when={part()?.targetRows && part()!.targetRows > 0}>
+        <Show when={target() > 0}>
           <p class="text-warm-text-secondary mt-2 text-lg">
-            из {part()!.targetRows}
+            из {target()}
           </p>
 
           <div class="w-full max-w-xs mt-4 h-2 bg-warm-progress-bg rounded-full overflow-hidden">

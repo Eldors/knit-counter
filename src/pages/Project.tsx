@@ -9,6 +9,7 @@ import {
   addPart,
   deletePart,
   updatePartRow,
+  updateProjectRow,
   getProjectParts,
   getProjectProgress,
   type Project as ProjectType,
@@ -57,6 +58,30 @@ export default function Project() {
     await updatePartRow(partId, newRow);
     setParts(parts().map((p) => (p.id === partId ? { ...p, currentRow: newRow } : p)));
     setProgress(await getProjectProgress(params.id));
+  };
+
+  const handleProjectIncrement = async () => {
+    const p = project();
+    if (!p) return;
+    const newRow = p.currentRow + 1;
+    await updateProjectRow(params.id, newRow);
+    setProject({ ...p, currentRow: newRow });
+    setProgress(await getProjectProgress(params.id));
+  };
+
+  const handleProjectDecrement = async () => {
+    const p = project();
+    if (!p || p.currentRow <= 0) return;
+    const newRow = p.currentRow - 1;
+    await updateProjectRow(params.id, newRow);
+    setProject({ ...p, currentRow: newRow });
+    setProgress(await getProjectProgress(params.id));
+  };
+
+  const projectPct = () => {
+    const p = project();
+    if (!p || p.targetRows <= 0) return null;
+    return Math.round((p.currentRow / p.targetRows) * 100);
   };
 
   const handleDeleteProject = async () => {
@@ -127,27 +152,84 @@ export default function Project() {
           </div>
         </Show>
 
-        <div class="flex flex-col gap-3 mt-2">
-          <For each={parts()}>
-            {(part) => (
-              <div class="relative group">
-                <PartCard
-                  part={part}
-                  projectId={params.id}
-                  onIncrement={handleIncrement}
-                  onDecrement={handleDecrement}
-                />
-                <button
-                  class="absolute -top-2 -right-2 w-6 h-6 rounded-full bg-warm-danger text-white flex items-center justify-center text-xs opacity-0 group-hover:opacity-100 transition-opacity shadow"
-                  onClick={() => setDeletingPartId(part.id)}
-                  aria-label="Удалить деталь"
-                >
-                  &times;
-                </button>
-              </div>
-            )}
-          </For>
+        {/* Project row counter card */}
+        <div
+          class="mt-2 bg-warm-surface rounded-2xl p-4 shadow-sm cursor-pointer active:scale-[0.98] transition-transform"
+          onClick={() => navigate(`/project/${params.id}/counter`)}
+        >
+          <div class="flex items-center justify-between gap-3">
+            <div class="flex-1 min-w-0">
+              <h3 class="font-medium truncate">Счётчик рядов</h3>
+              <Show when={project()?.targetRows && project()!.targetRows > 0}>
+                <p class="text-xs text-warm-text-secondary mt-0.5">
+                  {project()!.currentRow} из {project()!.targetRows}
+                </p>
+              </Show>
+            </div>
+
+            <div class="flex items-center gap-2 shrink-0">
+              <button
+                class="w-9 h-9 rounded-full bg-warm-progress-bg flex items-center justify-center text-lg font-medium hover:bg-warm-progress-bg/70 transition-colors"
+                onClick={(e) => {
+                  e.stopPropagation();
+                  handleProjectDecrement();
+                }}
+                aria-label="Минус ряд"
+              >
+                -
+              </button>
+              <span class="w-10 text-center font-semibold tabular-nums">{project()?.currentRow ?? 0}</span>
+              <button
+                class="w-9 h-9 rounded-full bg-warm-primary text-white flex items-center justify-center text-lg font-medium hover:bg-warm-primary-dark transition-colors"
+                onClick={(e) => {
+                  e.stopPropagation();
+                  handleProjectIncrement();
+                }}
+                aria-label="Плюс ряд"
+              >
+                +
+              </button>
+            </div>
+          </div>
+
+          <Show when={projectPct() !== null}>
+            <div class="mt-3 h-1.5 bg-warm-progress-bg rounded-full overflow-hidden">
+              <div
+                class="h-full rounded-full transition-all duration-300"
+                classList={{
+                  'bg-warm-primary': projectPct()! < 100,
+                  'bg-warm-success': projectPct()! >= 100,
+                }}
+                style={{ width: `${Math.min(projectPct()!, 100)}%` }}
+              />
+            </div>
+          </Show>
         </div>
+
+        <Show when={parts().length > 0}>
+          <h2 class="text-sm font-medium text-warm-text-secondary mt-6 mb-2">Детали</h2>
+          <div class="flex flex-col gap-3">
+            <For each={parts()}>
+              {(part) => (
+                <div class="relative group">
+                  <PartCard
+                    part={part}
+                    projectId={params.id}
+                    onIncrement={handleIncrement}
+                    onDecrement={handleDecrement}
+                  />
+                  <button
+                    class="absolute -top-2 -right-2 w-6 h-6 rounded-full bg-warm-danger text-white flex items-center justify-center text-xs opacity-0 group-hover:opacity-100 transition-opacity shadow"
+                    onClick={() => setDeletingPartId(part.id)}
+                    aria-label="Удалить деталь"
+                  >
+                    &times;
+                  </button>
+                </div>
+              )}
+            </For>
+          </div>
+        </Show>
 
         <Show
           when={showAddPart()}

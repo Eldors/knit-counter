@@ -1,5 +1,5 @@
 import { useNavigate } from '@solidjs/router';
-import { createSignal, Index } from 'solid-js';
+import { createSignal, Index, Show } from 'solid-js';
 import Header from '../components/Header';
 import { createProject } from '../db';
 
@@ -17,21 +17,21 @@ function makeDraft(name = '', targetRows = ''): PartDraft {
 export default function NewProject() {
   const navigate = useNavigate();
   const [name, setName] = createSignal('');
-  const [parts, setParts] = createSignal<PartDraft[]>([makeDraft()]);
+  const [projectTarget, setProjectTarget] = createSignal('');
+  const [parts, setParts] = createSignal<PartDraft[]>([]);
   const [saving, setSaving] = createSignal(false);
 
   const addPart = () => setParts([...parts(), makeDraft()]);
 
   const removePart = (key: number) => {
-    const list = parts().filter((p) => p.key !== key);
-    setParts(list.length ? list : [makeDraft()]);
+    setParts(parts().filter((p) => p.key !== key));
   };
 
   const updatePart = (key: number, field: 'name' | 'targetRows', value: string) => {
     setParts(parts().map((p) => (p.key === key ? { ...p, [field]: value } : p)));
   };
 
-  const canSubmit = () => !!name().trim() && parts().some((p) => p.name.trim());
+  const canSubmit = () => !!name().trim();
 
   const handleSubmit = async () => {
     if (!canSubmit() || saving()) return;
@@ -44,7 +44,7 @@ export default function NewProject() {
         targetRows: Math.max(0, parseInt(p.targetRows) || 0),
       }));
 
-    const id = await createProject(name().trim(), validParts);
+    const id = await createProject(name().trim(), validParts, Math.max(0, parseInt(projectTarget()) || 0));
     navigate(`/project/${id}`);
   };
 
@@ -67,43 +67,59 @@ export default function NewProject() {
           />
         </div>
 
-        <div class="mt-6">
-          <label class="block text-sm font-medium text-warm-text-secondary mb-2">Детали</label>
+        <div class="mt-4">
+          <label class="block text-sm font-medium text-warm-text-secondary mb-1">
+            Цель рядов для изделия
+          </label>
+          <input
+            type="number"
+            inputmode="numeric"
+            class="w-full px-4 py-3 rounded-xl bg-warm-surface border border-warm-progress-bg focus:border-warm-primary focus:outline-none transition-colors"
+            placeholder="Цель (рядов), необязательно"
+            value={projectTarget()}
+            onInput={(e) => setProjectTarget(e.currentTarget.value)}
+          />
+        </div>
 
-          <div class="flex flex-col gap-3">
-            <Index each={parts()}>
-              {(part) => (
-                <div class="flex gap-2 items-start">
-                  <div class="flex-1 flex flex-col gap-2">
-                    <input
-                      type="text"
-                      class="w-full px-3 py-2.5 rounded-xl bg-warm-surface border border-warm-progress-bg focus:border-warm-primary focus:outline-none text-sm transition-colors"
-                      placeholder="Название (спинка, рукав...)"
-                      value={part().name}
-                      onInput={(e) => updatePart(part().key, 'name', e.currentTarget.value)}
-                    />
-                    <input
-                      type="number"
-                      inputmode="numeric"
-                      class="w-full px-3 py-2.5 rounded-xl bg-warm-surface border border-warm-progress-bg focus:border-warm-primary focus:outline-none text-sm transition-colors"
-                      placeholder="Цель (рядов), необязательно"
-                      value={part().targetRows}
-                      onInput={(e) => updatePart(part().key, 'targetRows', e.currentTarget.value)}
-                    />
+        <div class="mt-6">
+          <label class="block text-sm font-medium text-warm-text-secondary mb-2">Детали (необязательно)</label>
+
+          <Show when={parts().length > 0}>
+            <div class="flex flex-col gap-3">
+              <Index each={parts()}>
+                {(part) => (
+                  <div class="flex gap-2 items-start">
+                    <div class="flex-1 flex flex-col gap-2">
+                      <input
+                        type="text"
+                        class="w-full px-3 py-2.5 rounded-xl bg-warm-surface border border-warm-progress-bg focus:border-warm-primary focus:outline-none text-sm transition-colors"
+                        placeholder="Название (спинка, рукав...)"
+                        value={part().name}
+                        onInput={(e) => updatePart(part().key, 'name', e.currentTarget.value)}
+                      />
+                      <input
+                        type="number"
+                        inputmode="numeric"
+                        class="w-full px-3 py-2.5 rounded-xl bg-warm-surface border border-warm-progress-bg focus:border-warm-primary focus:outline-none text-sm transition-colors"
+                        placeholder="Цель (рядов), необязательно"
+                        value={part().targetRows}
+                        onInput={(e) => updatePart(part().key, 'targetRows', e.currentTarget.value)}
+                      />
+                    </div>
+                    <button
+                      class="shrink-0 w-9 h-9 mt-0.5 rounded-full flex items-center justify-center text-warm-text-secondary hover:text-warm-danger hover:bg-warm-danger/10 transition-colors"
+                      onClick={() => removePart(part().key)}
+                      aria-label="Удалить деталь"
+                    >
+                      <svg class="w-4 h-4" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" d="M6 18L18 6M6 6l12 12" />
+                      </svg>
+                    </button>
                   </div>
-                  <button
-                    class="shrink-0 w-9 h-9 mt-0.5 rounded-full flex items-center justify-center text-warm-text-secondary hover:text-warm-danger hover:bg-warm-danger/10 transition-colors"
-                    onClick={() => removePart(part().key)}
-                    aria-label="Удалить деталь"
-                  >
-                    <svg class="w-4 h-4" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
-                      <path stroke-linecap="round" stroke-linejoin="round" d="M6 18L18 6M6 6l12 12" />
-                    </svg>
-                  </button>
-                </div>
-              )}
-            </Index>
-          </div>
+                )}
+              </Index>
+            </div>
+          </Show>
 
           <button
             class="mt-3 w-full py-2.5 rounded-xl border-2 border-dashed border-warm-progress-bg text-warm-text-secondary text-sm hover:border-warm-primary hover:text-warm-primary transition-colors"

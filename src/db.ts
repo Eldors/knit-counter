@@ -3,6 +3,8 @@ import Dexie, { type EntityTable } from 'dexie';
 export interface Project {
   id: string;
   name: string;
+  currentRow: number;
+  targetRows: number;
   createdAt: number;
   updatedAt: number;
 }
@@ -28,6 +30,16 @@ db.version(1).stores({
   parts: 'id, projectId',
 });
 
+db.version(2).stores({
+  projects: 'id, updatedAt',
+  parts: 'id, projectId',
+}).upgrade(tx => {
+  return tx.table('projects').toCollection().modify(project => {
+    if (project.currentRow === undefined) project.currentRow = 0;
+    if (project.targetRows === undefined) project.targetRows = 0;
+  });
+});
+
 export { db };
 
 // --- Helpers ---
@@ -39,6 +51,7 @@ function genId(): string {
 export async function createProject(
   name: string,
   parts: { name: string; targetRows: number }[],
+  targetRows: number = 0,
 ): Promise<string> {
   const now = Date.now();
   const projectId = genId();
@@ -47,6 +60,8 @@ export async function createProject(
     await db.projects.add({
       id: projectId,
       name,
+      currentRow: 0,
+      targetRows,
       createdAt: now,
       updatedAt: now,
     });
@@ -108,6 +123,10 @@ export async function updatePartRow(partId: string, currentRow: number): Promise
   await db.parts.update(partId, { currentRow, updatedAt: Date.now() });
 }
 
+export async function updateProjectRow(projectId: string, currentRow: number): Promise<void> {
+  await db.projects.update(projectId, { currentRow, updatedAt: Date.now() });
+}
+
 export async function getProjectParts(projectId: string): Promise<Part[]> {
   return db.parts.where('projectId').equals(projectId).sortBy('sortOrder');
 }
@@ -115,11 +134,18 @@ export async function getProjectParts(projectId: string): Promise<Part[]> {
 export async function getProjectProgress(
   projectId: string,
 ): Promise<{ done: number; total: number } | null> {
+  const project = await db.projects.get(projectId);
   const parts = await db.parts.where('projectId').equals(projectId).toArray();
   const withTarget = parts.filter((p) => p.targetRows > 0);
-  if (withTarget.length === 0) return null;
 
-  const total = withTarget.reduce((s, p) => s + p.targetRows, 0);
-  const done = withTarget.reduce((s, p) => s + Math.min(p.currentRow, p.targetRows), 0);
+  let total = withTarget.reduce((s, p) => s + p.targetRows, 0);
+  let done = withTarget.reduce((s, p) => s + Math.min(p.currentRow, p.targetRows), 0);
+
+  if (project && project.targetRows > 0) {
+    total += project.targetRows;
+    done += Math.min(project.currentRow, project.targetRows);
+  }
+
+  if (total === 0) return null;
   return { done, total };
 }
