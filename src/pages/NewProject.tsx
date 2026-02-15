@@ -1,5 +1,5 @@
 import { useNavigate } from '@solidjs/router';
-import { createSignal, For } from 'solid-js';
+import { createSignal, Index } from 'solid-js';
 import Header from '../components/Header';
 import { createProject } from '../db';
 
@@ -71,7 +71,7 @@ export default function NewProject() {
           <label class="block text-sm font-medium text-warm-text-secondary mb-2">Детали</label>
 
           <div class="flex flex-col gap-3">
-            <For each={parts()}>
+            <Index each={parts()}>
               {(part) => (
                 <div class="flex gap-2 items-start">
                   <div class="flex-1 flex flex-col gap-2">
@@ -79,21 +79,21 @@ export default function NewProject() {
                       type="text"
                       class="w-full px-3 py-2.5 rounded-xl bg-warm-surface border border-warm-progress-bg focus:border-warm-primary focus:outline-none text-sm transition-colors"
                       placeholder="Название (спинка, рукав...)"
-                      value={part.name}
-                      onInput={(e) => updatePart(part.key, 'name', e.currentTarget.value)}
+                      value={part().name}
+                      onInput={(e) => updatePart(part().key, 'name', e.currentTarget.value)}
                     />
                     <input
                       type="number"
                       inputmode="numeric"
                       class="w-full px-3 py-2.5 rounded-xl bg-warm-surface border border-warm-progress-bg focus:border-warm-primary focus:outline-none text-sm transition-colors"
                       placeholder="Цель (рядов), необязательно"
-                      value={part.targetRows}
-                      onInput={(e) => updatePart(part.key, 'targetRows', e.currentTarget.value)}
+                      value={part().targetRows}
+                      onInput={(e) => updatePart(part().key, 'targetRows', e.currentTarget.value)}
                     />
                   </div>
                   <button
                     class="shrink-0 w-9 h-9 mt-0.5 rounded-full flex items-center justify-center text-warm-text-secondary hover:text-warm-danger hover:bg-warm-danger/10 transition-colors"
-                    onClick={() => removePart(part.key)}
+                    onClick={() => removePart(part().key)}
                     aria-label="Удалить деталь"
                   >
                     <svg class="w-4 h-4" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
@@ -102,7 +102,7 @@ export default function NewProject() {
                   </button>
                 </div>
               )}
-            </For>
+            </Index>
           </div>
 
           <button
