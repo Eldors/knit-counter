@@ -1,0 +1,68 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="128" height="128" viewBox="0 0 128 128">
+  <defs>
+    <radialGradient id="ball" cx="45%" cy="40%" r="50%">
+      <stop offset="0%" stop-color="#E8918A"/>
+      <stop offset="70%" stop-color="#D4756B"/>
+      <stop offset="100%" stop-color="#B85C53"/>
+    </radialGradient>
+    <radialGradient id="highlight" cx="35%" cy="30%" r="30%">
+      <stop offset="0%" stop-color="#F2ADA6" stop-opacity="0.6"/>
+      <stop offset="100%" stop-color="#F2ADA6" stop-opacity="0"/>
+    </radialGradient>
+  </defs>
+
+  <!-- Yarn ball shadow -->
+  <ellipse cx="62" cy="108" rx="30" ry="6" fill="#00000018"/>
+
+  <!-- Main yarn ball -->
+  <circle cx="60" cy="68" r="38" fill="url(#ball)"/>
+
+  <!-- Highlight -->
+  <circle cx="60" cy="68" r="38" fill="url(#highlight)"/>
+
+  <!-- Yarn wrap lines - horizontal curves -->
+  <g fill="none" stroke="#B85C53" stroke-width="2.2" stroke-linecap="round" opacity="0.7">
+    <path d="M28 55 Q60 48 92 55"/>
+    <path d="M24 68 Q60 60 96 68"/>
+    <path d="M28 81 Q60 73 92 81"/>
+  </g>
+
+  <!-- Yarn wrap lines - diagonal curves -->
+  <g fill="none" stroke="#C4655D" stroke-width="2" stroke-linecap="round" opacity="0.5">
+    <path d="M38 34 Q50 58 42 100"/>
+    <path d="M58 32 Q65 58 60 104"/>
+    <path d="M78 36 Q80 60 76 98"/>
+  </g>
+
+  <!-- Yarn wrap lines - cross diagonals -->
+  <g fill="none" stroke="#B85C53" stroke-width="1.8" stroke-linecap="round" opacity="0.4">
+    <path d="M30 42 Q58 65 85 45"/>
+    <path d="M28 90 Q58 72 88 92"/>
+  </g>
+
+  <!-- Yarn tail -->
+  <path d="M72 100 Q78 110 68 116 Q58 120 48 114" fill="none" stroke="#D4756B" stroke-width="4.5" stroke-linecap="round"/>
+  <path d="M48 114 Q40 108 36 112" fill="none" stroke="#D4756B" stroke-width="4" stroke-linecap="round"/>
+
+  <!-- Knitting needle 1 -->
+  <g>
+    <!-- Needle shaft -->
+    <line x1="88" y1="8" x2="52" y2="52" stroke="#8B7355" stroke-width="4" stroke-linecap="round"/>
+    <!-- Needle tip -->
+    <line x1="52" y1="52" x2="46" y2="60" stroke="#A8956E" stroke-width="3" stroke-linecap="round"/>
+    <!-- Needle head/knob -->
+    <circle cx="90" cy="6" r="4.5" fill="#6B5840"/>
+    <circle cx="90" cy="6" r="2.5" fill="#8B7355"/>
+  </g>
+
+  <!-- Knitting needle 2 -->
+  <g>
+    <!-- Needle shaft -->
+    <line x1="104" y1="22" x2="68" y2="66" stroke="#8B7355" stroke-width="4" stroke-linecap="round"/>
+    <!-- Needle tip -->
+    <line x1="68" y1="66" x2="62" y2="74" stroke="#A8956E" stroke-width="3" stroke-linecap="round"/>
+    <!-- Needle head/knob -->
+    <circle cx="106" cy="20" r="4.5" fill="#6B5840"/>
+    <circle cx="106" cy="20" r="2.5" fill="#8B7355"/>
+  </g>
+</svg>
