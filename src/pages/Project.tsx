@@ -1,82 +1,37 @@
 import { useParams, useNavigate } from '@solidjs/router';
-import { createSignal, For, Show, onMount } from 'solid-js';
+import { createSignal, createEffect, For, Show } from 'solid-js';
 import Header from '../components/Header';
 import PartCard from '../components/PartCard';
 import ConfirmDialog from '../components/ConfirmDialog';
-import {
-  db,
-  deleteProject,
-  addPart,
-  deletePart,
-  updatePartRow,
-  updateProjectRow,
-  getProjectParts,
-  getProjectProgress,
-  type Project as ProjectType,
-  type Part,
-} from '../db';
+import { useProject } from '../data/useProject';
 
 export default function Project() {
   const params = useParams<{ id: string }>();
   const navigate = useNavigate();
 
-  const [project, setProject] = createSignal<ProjectType | null>(null);
-  const [parts, setParts] = createSignal<Part[]>([]);
-  const [progress, setProgress] = createSignal<{ done: number; total: number } | null>(null);
+  const {
+    project,
+    parts,
+    progress,
+    notFound,
+    incrementPart,
+    decrementPart,
+    incrementProject,
+    decrementProject,
+    addPart,
+    deletePart,
+    deleteProject,
+  } = useProject(() => params.id);
+
   const [showDeleteProject, setShowDeleteProject] = createSignal(false);
   const [deletingPartId, setDeletingPartId] = createSignal<string | null>(null);
   const [showAddPart, setShowAddPart] = createSignal(false);
   const [newPartName, setNewPartName] = createSignal('');
   const [newPartTarget, setNewPartTarget] = createSignal('');
 
-  const load = async () => {
-    const p = await db.projects.get(params.id);
-    if (!p) {
-      navigate('/');
-      return;
-    }
-    setProject(p);
-    setParts(await getProjectParts(params.id));
-    setProgress(await getProjectProgress(params.id));
-  };
-
-  onMount(load);
-
-  const handleIncrement = async (partId: string) => {
-    const part = parts().find((p) => p.id === partId);
-    if (!part) return;
-    const newRow = part.currentRow + 1;
-    await updatePartRow(partId, newRow);
-    setParts(parts().map((p) => (p.id === partId ? { ...p, currentRow: newRow } : p)));
-    setProgress(await getProjectProgress(params.id));
-  };
-
-  const handleDecrement = async (partId: string) => {
-    const part = parts().find((p) => p.id === partId);
-    if (!part || part.currentRow <= 0) return;
-    const newRow = part.currentRow - 1;
-    await updatePartRow(partId, newRow);
-    setParts(parts().map((p) => (p.id === partId ? { ...p, currentRow: newRow } : p)));
-    setProgress(await getProjectProgress(params.id));
-  };
-
-  const handleProjectIncrement = async () => {
-    const p = project();
-    if (!p) return;
-    const newRow = p.currentRow + 1;
-    await updateProjectRow(params.id, newRow);
-    setProject({ ...p, currentRow: newRow });
-    setProgress(await getProjectProgress(params.id));
-  };
-
-  const handleProjectDecrement = async () => {
-    const p = project();
-    if (!p || p.currentRow <= 0) return;
-    const newRow = p.currentRow - 1;
-    await updateProjectRow(params.id, newRow);
-    setProject({ ...p, currentRow: newRow });
-    setProgress(await getProjectProgress(params.id));
-  };
+  createEffect(() => {
+    if (notFound()) navigate('/');
+  });
 
   const projectPct = () => {
     const p = project();
@@ -84,34 +39,32 @@ export default function Project() {
     return Math.round((p.currentRow / p.targetRows) * 100);
   };
 
+  const pct = () => {
+    const p = progress();
+    if (!p || p.total === 0) return null;
+    return Math.round((p.done / p.total) * 100);
+  };
+
   const handleDeleteProject = async () => {
-    await deleteProject(params.id);
+    await deleteProject();
     navigate('/');
   };
 
   const handleDeletePart = async () => {
     const id = deletingPartId();
     if (!id) return;
-    await deletePart(id, params.id);
+    await deletePart(id);
     setDeletingPartId(null);
-    await load();
   };
 
   const handleAddPart = async () => {
     const name = newPartName().trim();
     if (!name) return;
     const target = Math.max(0, parseInt(newPartTarget()) || 0);
-    await addPart(params.id, name, target);
+    await addPart(name, target);
     setNewPartName('');
     setNewPartTarget('');
     setShowAddPart(false);
-    await load();
-  };
-
-  const pct = () => {
-    const p = progress();
-    if (!p || p.total === 0) return null;
-    return Math.round((p.done / p.total) * 100);
   };
 
   return (
@@ -172,7 +125,7 @@ export default function Project() {
                 class="w-9 h-9 rounded-full bg-warm-progress-bg flex items-center justify-center text-lg font-medium hover:bg-warm-progress-bg/70 transition-colors"
                 onClick={(e) => {
                   e.stopPropagation();
-                  handleProjectDecrement();
+                  decrementProject();
                 }}
                 aria-label="Минус ряд"
               >
@@ -183,7 +136,7 @@ export default function Project() {
                 class="w-9 h-9 rounded-full bg-warm-primary text-white flex items-center justify-center text-lg font-medium hover:bg-warm-primary-dark transition-colors"
                 onClick={(e) => {
                   e.stopPropagation();
-                  handleProjectIncrement();
+                  incrementProject();
                 }}
                 aria-label="Плюс ряд"
               >
@@ -215,8 +168,8 @@ export default function Project() {
                   <PartCard
                     part={part}
                     projectId={params.id}
-                    onIncrement={handleIncrement}
-                    onDecrement={handleDecrement}
+                    onIncrement={incrementPart}
+                    onDecrement={decrementPart}
                   />
                   <button
                     class="absolute -top-2 -right-2 w-6 h-6 rounded-full bg-warm-danger text-white flex items-center justify-center text-xs opacity-0 group-hover:opacity-100 transition-opacity shadow"

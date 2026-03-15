@@ -1,6 +1,7 @@
 import { useNavigate } from '@solidjs/router';
-import { createResource, Show } from 'solid-js';
-import { type Project, getProjectProgress } from '../db';
+import { Show } from 'solid-js';
+import { type Project } from '../db';
+import { useProgress } from '../data/useProgress';
 
 interface Props {
   project: Project;
@@ -9,10 +10,7 @@ interface Props {
 
 export default function ProjectCard(props: Props) {
   const navigate = useNavigate();
-  const [progress] = createResource(
-    () => props.project.id,
-    (id) => getProjectProgress(id),
-  );
+  const { progress } = useProgress(() => props.project.id);
 
   const pct = () => {
     const p = progress();

@@ -1,7 +1,7 @@
 import { useParams, useNavigate } from '@solidjs/router';
-import { createSignal, Index, onMount } from 'solid-js';
+import { createSignal, createEffect, Index } from 'solid-js';
 import Header from '../components/Header';
-import { db, getActivePattern, setPattern, removePattern } from '../db';
+import { usePatternEditor } from '../data/usePatternEditor';
 
 let nextKey = 0;
 function makeRow(text = '') {
@@ -13,36 +13,30 @@ export default function PatternEditor() {
   const navigate = useNavigate();
 
   const isProjectMode = () => !params.partId;
-  const entityId = () => (isProjectMode() ? params.id : params.partId!);
-  const entityType = (): 'project' | 'part' => (isProjectMode() ? 'project' : 'part');
 
   const backPath = () =>
     isProjectMode()
       ? `/project/${params.id}/counter`
       : `/project/${params.id}/part/${params.partId}`;
 
+  const { existingRows, notFound, applyPattern, removePattern } = usePatternEditor({
+    projectId: params.id,
+    partId: params.partId,
+  });
+
   const [rows, setRows] = createSignal<{ key: number; text: string }[]>([makeRow(), makeRow()]);
-  const [hasActive, setHasActive] = createSignal(false);
   const [saving, setSaving] = createSignal(false);
-  const [currentRow, setCurrentRow] = createSignal(0);
 
-  onMount(async () => {
-    // Загрузить текущее значение счетчика
-    if (isProjectMode()) {
-      const project = await db.projects.get(params.id);
-      if (!project) { navigate('/'); return; }
-      setCurrentRow(project.currentRow);
-    } else {
-      const part = await db.parts.get(params.partId!);
-      if (!part) { navigate(`/project/${params.id}`); return; }
-      setCurrentRow(part.currentRow);
+  createEffect(() => {
+    if (notFound()) {
+      navigate(isProjectMode() ? '/' : `/project/${params.id}`);
     }
+  });
 
-    // Загрузить активный паттерн
-    const active = await getActivePattern(entityId(), entityType());
-    if (active) {
-      setHasActive(true);
-      setRows(active.rows.map((t) => makeRow(t)));
+  createEffect(() => {
+    const existing = existingRows();
+    if (existing) {
+      setRows(existing.map((t) => makeRow(t)));
     }
   });
 
@@ -64,13 +58,13 @@ export default function PatternEditor() {
     const validRows = rows()
       .map((r) => r.text.trim())
       .filter(Boolean);
-    await setPattern(entityId(), entityType(), validRows, currentRow());
+    await applyPattern(validRows);
     navigate(backPath());
   };
 
   const handleRemove = async () => {
     setSaving(true);
-    await removePattern(entityId(), entityType(), currentRow());
+    await removePattern();
     navigate(backPath());
   };
 
@@ -130,7 +124,7 @@ export default function PatternEditor() {
           {saving() ? 'Сохраняю...' : 'Применить'}
         </button>
 
-        {hasActive() && (
+        {existingRows() !== null && (
           <button
             class="mt-3 w-full py-3 rounded-xl border border-warm-danger text-warm-danger font-medium hover:bg-warm-danger/10 transition-colors"
             disabled={saving()}

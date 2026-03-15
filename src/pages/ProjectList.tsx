@@ -1,28 +1,20 @@
 import { useNavigate } from '@solidjs/router';
-import { createSignal, For, Show, onMount } from 'solid-js';
+import { createSignal, For, Show } from 'solid-js';
 import Header from '../components/Header';
 import ProjectCard from '../components/ProjectCard';
 import ConfirmDialog from '../components/ConfirmDialog';
-import { db, deleteProject, type Project } from '../db';
+import { useProjectList } from '../data/useProjectList';
 
 export default function ProjectList() {
   const navigate = useNavigate();
-  const [projects, setProjects] = createSignal<Project[]>([]);
+  const { projects, deleteProject } = useProjectList();
   const [deleteId, setDeleteId] = createSignal<string | null>(null);
-
-  const load = async () => {
-    const list = await db.projects.orderBy('updatedAt').reverse().toArray();
-    setProjects(list);
-  };
-
-  onMount(load);
 
   const handleDelete = async () => {
     const id = deleteId();
     if (!id) return;
     await deleteProject(id);
     setDeleteId(null);
-    await load();
   };
 
   return (

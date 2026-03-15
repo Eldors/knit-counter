@@ -1,7 +1,7 @@
 import { useParams, useNavigate } from '@solidjs/router';
-import { createSignal, Show, For, onMount, onCleanup } from 'solid-js';
+import { createSignal, createEffect, Show, For, onCleanup } from 'solid-js';
 import ConfirmDialog from '../components/ConfirmDialog';
-import { db, updatePartRow, updateProjectRow, getActivePattern, type Pattern } from '../db';
+import { useCounter } from '../data/useCounter';
 
 function vibrate() {
   if (navigator.vibrate) {
@@ -15,16 +15,40 @@ export default function Counter() {
 
   const isProjectMode = () => !params.partId;
 
-  const [title, setTitle] = createSignal('');
-  const [target, setTarget] = createSignal(0);
-  const [count, setCount] = createSignal(0);
+  const {
+    title,
+    count,
+    target,
+    pattern,
+    notFound,
+    increment: dataIncrement,
+    decrement: dataDecrement,
+    reset: dataReset,
+  } = useCounter({ projectId: params.id, partId: params.partId });
+
   const [animating, setAnimating] = createSignal(false);
   const [showDone, setShowDone] = createSignal(false);
   const [showReset, setShowReset] = createSignal(false);
   const [doneSeen, setDoneSeen] = createSignal(false);
-  const [pattern, setPattern] = createSignal<Pattern | null>(null);
 
   let animTimer: ReturnType<typeof setTimeout> | undefined;
+
+  onCleanup(() => {
+    if (animTimer) clearTimeout(animTimer);
+  });
+
+  createEffect(() => {
+    if (notFound()) {
+      navigate(isProjectMode() ? '/' : `/project/${params.id}`);
+    }
+  });
+
+  // Track initial doneSeen based on loaded data
+  createEffect(() => {
+    if (target() > 0 && count() >= target()) {
+      setDoneSeen(true);
+    }
+  });
 
   const patternPath = () =>
     isProjectMode()
@@ -39,43 +63,6 @@ export default function Counter() {
     return (offset - 1) % p.rows.length;
   };
 
-  onMount(async () => {
-    if (isProjectMode()) {
-      const project = await db.projects.get(params.id);
-      if (!project) {
-        navigate('/');
-        return;
-      }
-      setTitle(project.name);
-      setTarget(project.targetRows);
-      setCount(project.currentRow);
-      if (project.targetRows > 0 && project.currentRow >= project.targetRows) {
-        setDoneSeen(true);
-      }
-    } else {
-      const p = await db.parts.get(params.partId!);
-      if (!p || p.projectId !== params.id) {
-        navigate(`/project/${params.id}`);
-        return;
-      }
-      setTitle(p.name);
-      setTarget(p.targetRows);
-      setCount(p.currentRow);
-      if (p.targetRows > 0 && p.currentRow >= p.targetRows) {
-        setDoneSeen(true);
-      }
-    }
-
-    const entityId = isProjectMode() ? params.id : params.partId!;
-    const entityType = isProjectMode() ? 'project' as const : 'part' as const;
-    const active = await getActivePattern(entityId, entityType);
-    if (active) setPattern(active);
-  });
-
-  onCleanup(() => {
-    if (animTimer) clearTimeout(animTimer);
-  });
-
   const triggerPulse = () => {
     setAnimating(false);
     requestAnimationFrame(() => {
@@ -85,42 +72,32 @@ export default function Counter() {
     });
   };
 
-  const saveRow = async (row: number) => {
-    if (isProjectMode()) await updateProjectRow(params.id, row);
-    else await updatePartRow(params.partId!, row);
-  };
-
-  const increment = async () => {
-    const newCount = count() + 1;
-    setCount(newCount);
+  const increment = () => {
+    dataIncrement();
     triggerPulse();
     vibrate();
-    await saveRow(newCount);
 
-    if (target() > 0 && newCount >= target() && !doneSeen()) {
+    if (target() > 0 && count() >= target() && !doneSeen()) {
       setDoneSeen(true);
       setShowDone(true);
       setTimeout(() => setShowDone(false), 1800);
     }
   };
 
-  const decrement = async () => {
+  const decrement = () => {
     if (count() <= 0) return;
-    const newCount = count() - 1;
-    setCount(newCount);
+    dataDecrement();
     vibrate();
-    await saveRow(newCount);
 
-    if (target() > 0 && newCount < target()) {
+    if (target() > 0 && count() < target()) {
       setDoneSeen(false);
     }
   };
 
-  const reset = async () => {
-    setCount(0);
+  const reset = () => {
+    dataReset();
     setShowReset(false);
     setDoneSeen(false);
-    await saveRow(0);
   };
 
   const pct = () => {
